@@ -75,7 +75,7 @@ def on_pullrequest_merged(msg):
     pretext = msg[u'attachments'][0][u'pretext']
     #username = re.search(r'Pull request submitted by <https?://[^|]+\|([^>]+)>', pretext).groups()[0]
     #sayname = username_to_sayname.get(username, username)
-    say(u'pull request merged')
+    say(u'pull request murged') # XXX: intentional phonetic spelling
 
 def on_pullrequest_comment(msg):
     say(u'pull request comment')
