@@ -30,13 +30,26 @@ class RtmBot(object):
         self.slack_client.rtm_connect()
     def start(self):
         self.connect()
+        print 'reconnected...'
         self.load_plugins()
         while True:
-            for reply in self.slack_client.rtm_read():
-                self.input(reply)
-            self.crons()
-            self.output()
-            self.autoping()
+            try:
+                for reply in self.slack_client.rtm_read():
+                    if not reply:  # assume disconnected
+                        self.connect()
+                    self.input(reply)
+                self.crons()
+                self.output()
+                self.autoping()
+            except Exception as e:
+                # on an exception try to re-connect
+                print e
+                try:
+                    self.connect()
+                except Exception as e:
+                    print e
+                else:
+                    print 'reconnected...'
             time.sleep(.1)
     def autoping(self):
         #hardcode the interval to 3 seconds
