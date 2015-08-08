@@ -5,11 +5,15 @@ BAMx plugin for rtmbot
 listens to Slack message, announce activity and stuff
 '''
 
+# XXX: needs a nice rewrite
+
 from collections import defaultdict
+import platform
 import re
 import subprocess
 import time
 import traceback
+import urllib2
 
 crontable = [] # don't know how this works...
 outputs = [] # append to me to generate output...
@@ -41,7 +45,11 @@ def on_message(msg):
 def on_botmsg(msg):
     # look for pull requests
     attachments = msg.get(u'attachments')
-    if attachments:
+
+    if is_jenkins_failure(msg):
+        faulty_component = jenkins_failure_forensic_blame(jenkins_failure_joburl(msg))
+        build_error(faulty_component)
+    elif attachments:
         pretext = attachments[0].get(u'pretext')
         text = attachments[0].get(u'text')
         # github pull requests
@@ -107,17 +115,91 @@ def on_pullrequest_merged(msg):
 def on_pullrequest_comment(msg):
     say(u'pull request comment')
 
-def say(msg):
-    subprocess.call([u'say',u'-v',u'Tessa'] + msg.split(u' '))
+def say(msg, voice=u'Tessa'):
+    system = platform.system()
+    if system == 'Linux':
+        subprocess.call([u'espeak', u'-s', u'200', u'-v', u'en+f2'] + msg.split(u' '))
+    elif system == 'Darwin':
+        subprocess.call([u'say', u'-v', voice] + msg.split(u' '))
 
 username_to_sayname = {
-    u'Rhathe': 'ramon',
-    u'csdev': 'chris',
+    u'Rhathe': u'ramon',
+    #u'Rhathe': {'default': u'ramon', 'espeak': u'ra-moan'},
+    u'csdev': u'chris',
     u'jwoos': u'jun woo',
     u'pbecotte': u'paul',
     u'rflynn': u'ryan',
     u'vail130': u'vail',
 }
+
+class BuildComponent(object):
+    UNKNOWN = 1
+    DOCKERHUB = 2
+    POSTGRESQL = 3
+    GITHUB = 4
+
+def build_error(component):
+    if component == BuildComponent.DOCKERHUB: build_error_dockerhub()
+    elif component == BuildComponent.POSTGRESQL: build_error_postgresql()
+    elif component == BuildComponent.GITHUB: build_error_github()
+    else: say('error')
+
+def build_error_dockerhub():
+    say('docker hub')
+
+def build_error_postgresql():
+    say('post gress')
+
+def build_error_github():
+    say('git hub')
+
+def is_jenkins_failure(msg):
+    try:
+        return (
+            msg[u'type'] == u'message'
+            and msg[u'subtype'] == u'bot_message'
+            and re.search(r'#\d+ Failure after.*jenkins.bam-x.com/', msg[u'attachments'][0][u'fields'][0][u'value'])
+        )
+    except:
+        return False
+
+def jenkins_failure_joburl(msg):
+    try:
+        return re.search(r'#\d+.*<(http[^|]+)', msg[u'attachments'][0][u'fields'][0][u'value']).groups()[0]
+    except:
+        pass
+
+def jenkins_failure_forensic_blame(joburl):
+    try:
+        url = joburl + u'consoleText'
+        # https://hue:peSYPN0g6uy4iX@jenkins.bam-x.com/...
+        req = urllib2.Request(url)
+        txt = urllib2.urlopen(req).read()
+        if is_it_dockerhub(txt): return BuildComponent.DOCKERHUB
+        elif is_it_github(txt): return BuildComponent.GITHUB
+        elif is_it_postgresql(txt): return BuildComponent.POSTGRESQL
+        return BuildComponent.UNKNOWN
+    except Exception as e:
+        print e
+
+def is_it_dockerhub(consoletext):
+    return (
+        u'Error pushing to registry: Server error' in consoletext
+        or u'Image already exists' in consoletext
+        or u'Image push failed' in consoletext
+        or bool(re.search(r'docker.*i/o timeout', consoletext))
+    )
+
+def is_it_github(consoletext):
+    return (
+        u'ERROR: Error fetching remote repo' in consoletxt
+    )
+
+def is_it_postgresql(consoletext):
+    return (
+        bool(re.search('^nc: connect to (?P<host_or_ip>\S+) port 5432 \(tcp\) failed: Connection refused\r?\nTimed out!', consoletext))
+    )
+
 
 '''
 Jenkins build failure
@@ -132,13 +214,14 @@ time="2015-07-20T02:42:51Z" level=fatal msg="Error pushing to registry: Server e
 
 c2f3c8103eb3: Image already exists
 
+c2f3c8103eb3: Image push failed
+
 ERROR: Error fetching remote repo 'origin'
 
 nc: connect to 172.17.0.24 port 5432 (tcp) failed: Connection refused
 Timed out!
 
 sqlalchemy.exc.IntegrityError:
-
 
 '''
 
