@@ -113,6 +113,12 @@ def on_pullrequest_merged(msg):
     say(u'pull request murged') # XXX: intentional phonetic spelling
 
 def on_pullrequest_comment(msg):
+    try:
+        if msg[u'attachments'][0][u'text'] == u'#test': # special Jenkins convention
+            say(u'pound test')
+        return
+    except:
+        pass
     say(u'pull request comment')
 
 def say(msg, voice=u'Tessa'):
