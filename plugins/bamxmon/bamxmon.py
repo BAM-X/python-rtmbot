@@ -244,7 +244,7 @@ def is_it_dockerhub(consoletext):
 
 def is_it_github(consoletext):
     return (
-        u'ERROR: Error fetching remote repo' in consoletxt
+        u'ERROR: Error fetching remote repo' in consoletext
     )
 
 
