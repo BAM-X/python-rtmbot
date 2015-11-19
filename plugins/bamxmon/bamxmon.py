@@ -7,16 +7,15 @@ listens to Slack message, announce activity and stuff
 
 # XXX: needs a nice rewrite
 
-from collections import defaultdict
 import platform
 import re
 import subprocess
-import time
 import traceback
 import urllib2
+from collections import defaultdict
 
-crontable = [] # don't know how this works...
-outputs = [] # append to me to generate output...
+crontable = []  # don't know how this works...
+outputs = []  # append to me to generate output...
 
 channels = {
     u'C04TP1MAC': u'alerts',
@@ -26,7 +25,8 @@ channels = {
     u'C03JJ7RTM': u'jira',
     u'C03FDPE8J': u'random',
 }
-chanbyname = {k:v for k,v in channels.items()}
+chanbyname = {k: v for k, v in channels.items()}
+
 
 # top-level plugin callback
 def process_message(msg):
@@ -36,11 +36,17 @@ def process_message(msg):
     except:
         traceback.print_exc()
 
+
 def on_message(msg):
-    if msg.get('subtype') is None: pass # regular message from human
-    elif msg.get('subtype') == u'bot_message': on_botmsg(msg)
-    elif msg.get('subtype') == u'message_changed': pass
-    elif msg.get('subtype') == u'message_deleted': pass
+    if msg.get('subtype') is None:
+        pass  # regular message from human
+    elif msg.get('subtype') == u'bot_message':
+        on_botmsg(msg)
+    elif msg.get('subtype') == u'message_changed':
+        pass
+    elif msg.get('subtype') == u'message_deleted':
+        pass
+
 
 def on_botmsg(msg):
     # look for pull requests
@@ -54,22 +60,31 @@ def on_botmsg(msg):
         text = attachments[0].get(u'text')
         # github pull requests
         if pretext:
-            if u'Pull request submitted by' in pretext: on_pullrequest_submitted(msg)
-            elif u'New comment on pull request' in pretext or u'New comment on commit' in pretext: on_pullrequest_comment(msg)
+            if u'Pull request submitted by' in pretext:
+                on_pullrequest_submitted(msg)
+            elif u'New comment on pull request' in pretext or u'New comment on commit' in pretext:
+                on_pullrequest_comment(msg)
         if text:
-            if u'Merge pull request' in text: on_pullrequest_merged(msg)
-            elif u'Pull request re-opened' in text: on_pullrequest_reopened(msg)
-            #elif u'Pull request closed' in text: on_pullrequest_closed(msg)
+            if u'Merge pull request' in text:
+                on_pullrequest_merged(msg)
+            elif u'Pull request re-opened' in text:
+                on_pullrequest_reopened(msg)
+            # elif u'Pull request closed' in text: on_pullrequest_closed(msg)
         # alerts
         fallback = attachments[0].get(u'fallback')
         if fallback:
-            if u'New alert for' in fallback: on_alert_new(msg)
-            elif u'Ended alert for' in fallback: on_alert_ended(msg)
+            if u'New alert for' in fallback:
+                on_alert_new(msg)
+            elif u'Ended alert for' in fallback:
+                on_alert_ended(msg)
+
 
 alerts_active = defaultdict(int)
 
+
 def normalize_alert_key(s):
     return s.replace(u'&gt;', u'>')
+
 
 def on_alert_new(msg):
     fallback = msg[u'attachments'][0][u'fallback']
@@ -81,6 +96,7 @@ def on_alert_new(msg):
     alert_say = alert_key_normal[:alert_key_normal.index(':')] if ':' in alert_key_normal else alert_key_normal
     say('alert. %s' % alert_say)
 
+
 def on_alert_ended(msg):
     fallback = msg[u'attachments'][0][u'fallback']
     alert_key = re.search(r'Ended alert for (.+)', fallback).groups(0)[0]
@@ -88,11 +104,13 @@ def on_alert_ended(msg):
     alerts_active[alert_key_normal] = max(0, alerts_active[alert_key_normal] - 1)
     say('alert ended')
 
+
 def on_pullrequest_submitted(msg):
     pretext = msg[u'attachments'][0][u'pretext']
     username = re.search(r'Pull request submitted by <https?://[^|]+\|([^>]+)>', pretext).groups()[0]
     sayname = username_to_sayname.get(username, username)
     say(u'pull request by %s' % sayname)
+
 
 def on_pullrequest_reopened(msg):
     pretext = msg[u'attachments'][0][u'text']
@@ -100,25 +118,29 @@ def on_pullrequest_reopened(msg):
     sayname = username_to_sayname.get(username, username)
     say(u'pull request by %s' % sayname)
 
+
 def on_pullrequest_closed(msg):
     pretext = msg[u'attachments'][0][u'text']
     username = re.search(r'Pull request closed: <[^>]+> by <https?://[^|]+\|([^>]+)>', pretext).groups()[0]
     sayname = username_to_sayname.get(username, username)
     say(u'pull request closed')
 
+
 def on_pullrequest_merged(msg):
     pretext = msg[u'attachments'][0][u'pretext']
-    #username = re.search(r'Pull request submitted by <https?://[^|]+\|([^>]+)>', pretext).groups()[0]
-    #sayname = username_to_sayname.get(username, username)
-    say(u'pull request murged') # XXX: intentional phonetic spelling
+    # username = re.search(r'Pull request submitted by <https?://[^|]+\|([^>]+)>', pretext).groups()[0]
+    # sayname = username_to_sayname.get(username, username)
+    say(u'pull request murged')  # XXX: intentional phonetic spelling
+
 
 def on_pullrequest_comment(msg):
     try:
         pretext = msg[u'attachments'][0][u'pretext']
         # [BAM-X/backend] New comment on commit <https://github.com/BAM-X/backend/pull/3376#discussion_r45412760|6b2f53e>
-        pr_num = re.search(r'New comment on commit <https?://github.com/BAM-X/backend/pull/(\d+).*', pretext).groups()[0]
+        pr_num = re.search(r'New comment on commit <https?://github.com/BAM-X/backend/pull/(\d+).*', pretext).groups()[
+            0]
         username = re.search(r'Comment by (.+)\n', msg[u'attachments'][0][u'title']).groups()[0]
-        if msg[u'attachments'][0][u'text'] == u'#test': # special Jenkins convention
+        if msg[u'attachments'][0][u'text'] == u'#test':  # special Jenkins convention
             say(u'%s is re-running P R %s' % (' '.join(str(pr_num)), username_to_sayname.get(username)))
         else:
             say(u'%s commented on pull request %s' % (username_to_sayname.get(username), ' '.join(str(pr_num))))
@@ -133,9 +155,10 @@ def say(msg, voice=u'Tessa'):
     elif system == 'Darwin':
         subprocess.call([u'say', u'-v', voice] + msg.split(u' '))
 
+
 username_to_sayname = {
     u'Rhathe': u'ramon',
-    #u'Rhathe': {'default': u'ramon', 'espeak': u'ra-moan'},
+    # u'Rhathe': {'default': u'ramon', 'espeak': u'ra-moan'},
     u'csdev': u'chris',
     u'jwoos': u'jun woo',
     u'pbecotte': u'paul',
@@ -144,26 +167,36 @@ username_to_sayname = {
     u'stupschwartz': u'stu',
 }
 
+
 class BuildComponent(object):
     UNKNOWN = 1
     DOCKERHUB = 2
     POSTGRESQL = 3
     GITHUB = 4
 
+
 def build_error(component):
-    if component == BuildComponent.DOCKERHUB: build_error_dockerhub()
-    elif component == BuildComponent.POSTGRESQL: build_error_postgresql()
-    elif component == BuildComponent.GITHUB: build_error_github()
-    else: say('error')
+    if component == BuildComponent.DOCKERHUB:
+        build_error_dockerhub()
+    elif component == BuildComponent.POSTGRESQL:
+        build_error_postgresql()
+    elif component == BuildComponent.GITHUB:
+        build_error_github()
+    else:
+        say('error')
+
 
 def build_error_dockerhub():
     say('docker hub')
 
+
 def build_error_postgresql():
     say('post gress')
 
+
 def build_error_github():
     say('git hub')
+
 
 def is_jenkins_failure(msg):
     try:
@@ -175,11 +208,13 @@ def is_jenkins_failure(msg):
     except:
         return False
 
+
 def jenkins_failure_joburl(msg):
     try:
         return re.search(r'#\d+.*<(http[^|]+)', msg[u'attachments'][0][u'fields'][0][u'value']).groups()[0]
     except:
         pass
+
 
 def jenkins_failure_forensic_blame(joburl):
     try:
@@ -187,12 +222,16 @@ def jenkins_failure_forensic_blame(joburl):
         # https://hue:peSYPN0g6uy4iX@jenkins.bam-x.com/...
         req = urllib2.Request(url)
         txt = urllib2.urlopen(req).read()
-        if is_it_dockerhub(txt): return BuildComponent.DOCKERHUB
-        elif is_it_github(txt): return BuildComponent.GITHUB
-        elif is_it_postgresql(txt): return BuildComponent.POSTGRESQL
+        if is_it_dockerhub(txt):
+            return BuildComponent.DOCKERHUB
+        elif is_it_github(txt):
+            return BuildComponent.GITHUB
+        elif is_it_postgresql(txt):
+            return BuildComponent.POSTGRESQL
         return BuildComponent.UNKNOWN
     except Exception as e:
         print e
+
 
 def is_it_dockerhub(consoletext):
     return (
@@ -202,14 +241,18 @@ def is_it_dockerhub(consoletext):
         or bool(re.search(r'docker.*i/o timeout', consoletext))
     )
 
+
 def is_it_github(consoletext):
     return (
         u'ERROR: Error fetching remote repo' in consoletxt
     )
 
+
 def is_it_postgresql(consoletext):
     return (
-        bool(re.search('^nc: connect to (?P<host_or_ip>\S+) port 5432 \(tcp\) failed: Connection refused\r?\nTimed out!', consoletext))
+        bool(
+            re.search('^nc: connect to (?P<host_or_ip>\S+) port 5432 \(tcp\) failed: Connection refused\r?\nTimed out!',
+                      consoletext))
     )
 
 
@@ -247,4 +290,3 @@ Staging: Error rate &gt; 10.0%', u'ts': u'1437573378.000003', u'subtype': u'bot_
 {u'attachments': [{u'title': u'#2400 fluentd loses data and is our component', u'color': u'6CC644', u'title_link': u'https://github.com/BAM-X/backend/pull/2400', u'mrkdwn_in': [u'text', u'pretext'], u'pretext': u'[BAM-X/backend] Pull request submitted by <https://github.com/rflynn|rflynn>', u'fallback': u'[BAM-X/backend] <https://github.com/BAM-X/backend/pull/2400|Pull request submitted> by <https://github.com/rflynn|rflynn>', u'id': 1}], u'text': u'', u'ts': u'1437593427.000095', u'subtype': u'bot_message', u'type': u'message', u'channel': u'C03FDSW2Q', u'bot_id': u'B03FBHP4T'}
 {u'attachments': [{u'color': u'36a64f', u'fields': [{u'short': False, u'value': u'DOCKER-DEV - #1962 GitHub pull request #2400 of commit 35d8b17a8ae9cee43b11e2c07813fa7fc06a1e73, no merge conflicts. (<http://jenkins.bam-x.com/job/DOCKER-DEV/1962/|Open>)', u'title': u''}], u'fallback': u'DOCKER-DEV - #1962 GitHub pull request #2400 of commit 35d8b17a8ae9cee43b11e2c07813fa7fc06a1e73, no merge conflicts. (<http://jenkins.bam-x.com/job/DOCKER-DEV/1962/|Open>)', u'id': 1}], u'text': u'', u'ts': u'1437593437.000096', u'subtype': u'bot_message', u'type': u'message', u'channel': u'C03FDSW2Q', u'bot_id': u'B03FDU74G'}
 '''
-
