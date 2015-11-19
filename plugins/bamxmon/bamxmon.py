@@ -114,12 +114,17 @@ def on_pullrequest_merged(msg):
 
 def on_pullrequest_comment(msg):
     try:
+        pretext = msg[u'attachments'][0][u'pretext']
+        # [BAM-X/backend] New comment on commit <https://github.com/BAM-X/backend/pull/3376#discussion_r45412760|6b2f53e>
+        pr_num = re.search(r'New comment on commit <https?://github.com/BAM-X/backend/pull/(\d+).*', pretext).groups()[0]
+        username = re.search(r'Comment by (.+)\n', msg[u'attachments'][0][u'title']).groups()[0]
         if msg[u'attachments'][0][u'text'] == u'#test': # special Jenkins convention
-            say(u'pound test')
-        return
+            say(u'%s is re-running P R %s' % (' '.join(str(pr_num)), username_to_sayname.get(username)))
+        else:
+            say(u'%s commented on pull request %s' % (username_to_sayname.get(username), ' '.join(str(pr_num))))
     except:
         pass
-    say(u'pull request comment')
+
 
 def say(msg, voice=u'Tessa'):
     system = platform.system()
@@ -136,6 +141,7 @@ username_to_sayname = {
     u'pbecotte': u'paul',
     u'rflynn': u'ryan',
     u'vail130': u'vail',
+    u'stupschwartz': u'stu',
 }
 
 class BuildComponent(object):

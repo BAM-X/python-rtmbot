@@ -3,3 +3,4 @@
 #/plugins/**
 env
 venv
+.idea/
